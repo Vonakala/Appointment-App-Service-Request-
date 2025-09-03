@@ -9,7 +9,13 @@
 <div class="container mt-5">
     <h2>Welcome, {{ user.name }}</h2>
     <a href="{{ url_for('logout') }}" class="btn btn-danger float-end">Logout</a>
-
+       {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, msg in messages %}
+          <div class="alert alert-{{ category }} py-1 px-2 w-50 mx-auto" role="alert">{{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
     <h4 class="mt-4">All Bookings</h4>
     <table class="table table-bordered">
         <thead>
@@ -49,8 +55,6 @@
 
     <div class="mt-3">
         <a href="{{ url_for('newmechanic') }}" class="btn btn-success">Create New Mechanic</a>
-        <!-- Button to process client requests -->
-        <a href="{{ url_for('process_requests') }}" class="btn btn-warning">Process Client Requests</a>
     </div>
 </div>
 </body>

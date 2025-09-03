@@ -22,16 +22,16 @@
     <div class="login-card">
         <h3 class="text-center mb-4">Login</h3>
 
-        {% with messages = get_flashed_messages(with_categories=true) %}
-          {% if messages %}
-            {% for category, msg in messages %}
-              <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                  {{ msg }}
-                  <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-              </div>
-            {% endfor %}
-          {% endif %}
-        {% endwith %}
+         {% set messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+  {% for category, message in messages %}
+    {% if category in ["danger", "login", "success"] %}
+      <div class="alert alert-{{ category }}">{{ message }}</div>
+    {% endif %}
+  {% endfor %}
+{% endif %}
+
+
 
         <form method="POST">
             <div class="mb-3">

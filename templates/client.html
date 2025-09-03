@@ -10,13 +10,14 @@
 </head>
 <body>
 <div class="container mt-5">
-    <h2>Welcome, {{ user.name }}</h2>
+    <h2>Welcome, {{ user.name }} {{ user.surname }}</h2>
+
     <a href="{{ url_for('logout') }}" class="btn btn-danger float-end">Logout</a>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for category, msg in messages %}
-          <div class="alert alert-{{ category }}">{{ msg }}</div>
+          <div class="alert alert-{{ category }} py-1 px-2 w-50 mx-auto" role="alert">{{ msg }}</div>
         {% endfor %}
       {% endif %}
     {% endwith %}
@@ -47,6 +48,11 @@
                 <option value="Light">Light</option>
             </select>
         </div>
+		
+        <div class="mb-3">
+             <label>Problem Description</label>
+             <textarea name="description" class="form-control" rows="4" placeholder="Describe the issue with your vehicle" required></textarea>
+        </div>
 
         <div class="mb-3">
             <label>Preferred Date</label>
@@ -62,86 +68,47 @@
     </form>
 
     <h4 class="mt-5">Your Bookings</h4>
-    <table class="table table-bordered">
-        <thead>
-            <tr>
-                <th>Reference</th>
-                <th>Vehicle</th>
-                <th>Address</th>
-                <th>Date & Time</th>
-                <th>Status</th>
-                <th>Assigned Mechanic</th>
-                <th>Phone Number</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for key, booking in bookings.items() %}
-            <tr>
-                <td>{{ booking.reference_number }}</td>
-                <td>{{ booking.vehicle }}</td>
-                <td>{{ booking.address }}</td>
-                <td>{{ booking.service_datetime }}</td>
-                <td>{{ booking.status }}</td>
-                <td>{{ booking.assigned_mechanic_name }}</td>
-                <td>{{ booking.assigned_mechanic_phone }}</td>
-            </tr>
-            {% else %}
-            <tr><td colspan="7">No bookings yet.</td></tr>
-            {% endfor %}
-        </tbody>
-    </table>
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th>Reference</th>
+            <th>Vehicle</th>
+            <th>Address</th>
+            <th>Problem Description</th> 
+            <th>Date & Time</th>
+            <th>Status</th>
+            <th>Assigned Mechanic</th>
+            <th>Phone Number</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for key, booking in bookings.items() %}
+        <tr>
+            <td>{{ booking.reference_number }}</td>
+            <td>{{ booking.vehicle }}</td>
+            <td>{{ booking.address }}</td>
+            <td>{{ booking.description }}</td> 
+            <td>{{ booking.service_datetime }}</td>
+            <td>{{ booking.status }}</td>
+            <td>{{ booking.assigned_mechanic_name }}</td>
+            <td>{{ booking.assigned_mechanic_phone }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8">No bookings yet.</td></tr> 
+        {% endfor %}
+    </tbody>
+</table>
+
 </div>
 
-<script>
-function initMap() {
-    const defaultLoc = { lat: -25.7479, lng: 28.2293 }; // Pretoria
-    const map = new google.maps.Map(document.getElementById("map"), {
-        center: defaultLoc,
-        zoom: 12
-    });
-
-    let marker;
-    const geocoder = new google.maps.Geocoder();
-
-    function placeMarker(location) {
-        if (marker) marker.setMap(null);
-        marker = new google.maps.Marker({ position: location, map: map });
-        document.getElementById("lat").value = location.lat();
-        document.getElementById("lng").value = location.lng();
-
-        geocoder.geocode({ location: location }, (results, status) => {
-            if (status === "OK" && results[0]) {
-                document.getElementById("pac-input").value = results[0].formatted_address;
-            }
-        });
-    }
-
-    map.addListener("click", e => placeMarker(e.latLng));
-
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(pos => {
-            const posLoc = new google.maps.LatLng(pos.coords.latitude, pos.coords.longitude);
-            map.setCenter(posLoc);
-            placeMarker(posLoc);
-        });
-    }
-
-    const input = document.getElementById("pac-input");
-    const autocomplete = new google.maps.places.Autocomplete(input);
-    autocomplete.bindTo("bounds", map);
-    autocomplete.addListener("place_changed", () => {
-        const place = autocomplete.getPlace();
-        if (!place.geometry) return;
-        map.setCenter(place.geometry.location);
-        map.setZoom(15);
-        placeMarker(place.geometry.location);
-    });
-}
-</script>
+<script src="{{ url_for('static', filename='maps.js') }}"></script>
 
 <script
     src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=places&callback=initMap"
     async defer>
 </script>
+ <footer class="text-center mt-2">
+    <p class="small">&copy; 2025 Lure Mobile Mechanics.<br> All rights reserved.</p>
+  </footer>
 </body>
 </html>

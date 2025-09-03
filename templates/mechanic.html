@@ -9,7 +9,13 @@
 <div class="container mt-5">
     <h2>Welcome, {{ user.name }}</h2>
     <a href="{{ url_for('logout') }}" class="btn btn-danger float-end">Logout</a>
-
+{% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, msg in messages %}
+          <div class="alert alert-{{ category }} py-1 px-2 w-50 mx-auto" role="alert">{{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
     <h4 class="mt-4">Assigned Bookings</h4>
     <table class="table table-bordered">
         <thead>
@@ -17,7 +23,10 @@
                 <th>Client Name</th>
                 <th>Vehicle</th>
                 <th>Address</th>
-                <th>Status</th>
+                <th>Description</th>
+				<th>Service Date</th>
+				<th>Phone</th>
+				<th>Status</th>
             </tr>
         </thead>
         <tbody>
@@ -26,13 +35,21 @@
                 <td>{{ booking.name }} {{ booking.surname }}</td>
                 <td>{{ booking.vehicle }}</td>
                 <td>{{ booking.address }}</td>
-                <td>{{ booking.status }}</td>
+                <td>{{ booking.description }}</td>
+				<td>{{ booking.service_datetime }}</td>
+				<td>{{ booking.phone }}</td>
+				<td>{{ booking.status }}</td>
             </tr>
             {% else %}
             <tr><td colspan="4">No bookings assigned.</td></tr>
             {% endfor %}
         </tbody>
     </table>
+	 
 </div>
+ <footer class="text-center mt-2">
+        <p class="small">&copy; 2025 Lure Mobile Mechanics.<br> All rights reserved.</p>
+    </footer>
 </body>
+
 </html>
