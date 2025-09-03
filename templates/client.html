@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Client Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        #map { height: 400px; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+<div class="container mt-5">
+    <h2>Welcome, {{ user.name }}</h2>
+    <a href="{{ url_for('logout') }}" class="btn btn-danger float-end">Logout</a>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, msg in messages %}
+          <div class="alert alert-{{ category }}">{{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <h4 class="mt-4">Book a Service</h4>
+    <form method="POST" action="{{ url_for('book_service') }}">
+        <input id="pac-input" type="text" name="address" class="form-control mb-3" placeholder="Enter address" required>
+        <div id="map"></div>
+
+        <input type="hidden" id="lat" name="lat">
+        <input type="hidden" id="lng" name="lng">
+
+        <div class="mb-3">
+            <label>Vehicle Registration</label>
+            <input type="text" name="vehicle" class="form-control" required>
+        </div>
+
+        <div class="mb-3">
+            <label>Make/Model</label>
+            <input type="text" name="make_model" class="form-control" placeholder="Provide name and year" required>
+        </div>
+
+        <div class="mb-3">
+            <label>Category</label>
+            <select name="category" class="form-control" required>
+                <option value="">Select Category</option>
+                <option value="Heavy">Heavy</option>
+                <option value="Light">Light</option>
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label>Preferred Date</label>
+            <input type="date" name="service_date" class="form-control" required>
+        </div>
+
+        <div class="mb-3">
+            <label>Preferred Time</label>
+            <input type="time" name="service_time" class="form-control" required>
+        </div>
+
+        <button type="submit" class="btn btn-success">Book Service</button>
+    </form>
+
+    <h4 class="mt-5">Your Bookings</h4>
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Reference</th>
+                <th>Vehicle</th>
+                <th>Address</th>
+                <th>Date & Time</th>
+                <th>Status</th>
+                <th>Assigned Mechanic</th>
+                <th>Phone Number</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for key, booking in bookings.items() %}
+            <tr>
+                <td>{{ booking.reference_number }}</td>
+                <td>{{ booking.vehicle }}</td>
+                <td>{{ booking.address }}</td>
+                <td>{{ booking.service_datetime }}</td>
+                <td>{{ booking.status }}</td>
+                <td>{{ booking.assigned_mechanic_name }}</td>
+                <td>{{ booking.assigned_mechanic_phone }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7">No bookings yet.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+function initMap() {
+    const defaultLoc = { lat: -25.7479, lng: 28.2293 }; // Pretoria
+    const map = new google.maps.Map(document.getElementById("map"), {
+        center: defaultLoc,
+        zoom: 12
+    });
+
+    let marker;
+    const geocoder = new google.maps.Geocoder();
+
+    function placeMarker(location) {
+        if (marker) marker.setMap(null);
+        marker = new google.maps.Marker({ position: location, map: map });
+        document.getElementById("lat").value = location.lat();
+        document.getElementById("lng").value = location.lng();
+
+        geocoder.geocode({ location: location }, (results, status) => {
+            if (status === "OK" && results[0]) {
+                document.getElementById("pac-input").value = results[0].formatted_address;
+            }
+        });
+    }
+
+    map.addListener("click", e => placeMarker(e.latLng));
+
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(pos => {
+            const posLoc = new google.maps.LatLng(pos.coords.latitude, pos.coords.longitude);
+            map.setCenter(posLoc);
+            placeMarker(posLoc);
+        });
+    }
+
+    const input = document.getElementById("pac-input");
+    const autocomplete = new google.maps.places.Autocomplete(input);
+    autocomplete.bindTo("bounds", map);
+    autocomplete.addListener("place_changed", () => {
+        const place = autocomplete.getPlace();
+        if (!place.geometry) return;
+        map.setCenter(place.geometry.location);
+        map.setZoom(15);
+        placeMarker(place.geometry.location);
+    });
+}
+</script>
+
+<script
+    src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=places&callback=initMap"
+    async defer>
+</script>
+</body>
+</html>
