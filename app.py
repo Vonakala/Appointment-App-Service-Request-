@@ -9,50 +9,38 @@ import secrets
 from datetime import datetime
 import smtplib
 from email.mime.text import MIMEText
+from flask import jsonify
 
-# loading sensitive and hidden data from the .env file
+# Loading environmental variables
 load_dotenv()
 
-FLASK_SECRET_KEY = os.environ.get("FLASK_SECRET_KEY", "supersecretkey")
-GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY")
-EMAIL_PASSWORD = os.environ.get("EMAIL_PASSWORD")
+FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY", "supersecretkey")
+GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
 EMAIL_USER = os.getenv("EMAIL_USER")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
-#getting admin
-ADMINS = [
-    {"email": os.environ.get("ADMIN_EMAIL"), "phone": os.environ.get("ADMIN_PHONE")}
-]
-
-# flask app
-app = Flask(__name__)
-app.secret_key = FLASK_SECRET_KEY
-
-# initializing firebase
 FIREBASE_DB_URL = os.getenv("FIREBASE_DB_URL")
 SERVICE_ACCOUNT_PATH = os.getenv("SERVICE_ACCOUNT_PATH")
 
+ADMINS = [
+    {"email": os.getenv("ADMIN_EMAIL"), "phone": os.getenv("ADMIN_PHONE")}
+]
+
+# Flask setup
+app = Flask(__name__)
+app.secret_key = FLASK_SECRET_KEY
+
+# Initializing Firebase
 if not firebase_admin._apps:
     cred = credentials.Certificate(SERVICE_ACCOUNT_PATH)
-    firebase_admin.initialize_app(cred, {
-        "databaseURL": FIREBASE_DB_URL
-    })
+    firebase_admin.initialize_app(cred, {"databaseURL": FIREBASE_DB_URL})
     print("Firebase initialized")
 
-
-if not firebase_admin._apps:
-    cred = credentials.Certificate(SERVICE_ACCOUNT_PATH)
-    firebase_admin.initialize_app(cred, {
-        "databaseURL": FIREBASE_DB_URL
-    })
-    print("Firebase initialized")
-
-# managing login
+# Flask Login manager
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = "login"
 
-# user class
-# Users get stored in this class when they signup
+# User class for storing users
 class User(UserMixin):
     def __init__(self, uid, email=None, role=None, name=None, surname=None, phone=None):
         self.id = uid
@@ -61,6 +49,7 @@ class User(UserMixin):
         self.name = name
         self.surname = surname
         self.phone = phone
+
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -73,35 +62,48 @@ def load_user(user_id):
                 role=user_data.get("role"),
                 name=user_data.get("name"),
                 surname=user_data.get("surname"),
-                phone=user_data.get("phone")
+                phone=user_data.get("phone"),
             )
     except Exception as e:
         print("❌ load_user failed:", e)
     return None
 
-# validating password
+# Password validation
 def is_valid_password(password):
+    """Validate password strength: min 8 chars, uppercase, lowercase, number, special char."""
     pattern = r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$'
     return re.match(pattern, password)
 
-# hidding user dashboards
-# encrypting landing pages after a successful login 
+# --- Encrypted/hidden routes ---
 HASHES = {
-    "client_dashboard": "/client",
-    "mechanic_dashboard": "/mechanic",
-    "admin_dashboard": "/admin",
-    "new_mechanic": "/new_mechanic",
-    "assign_mechanic": "/assign_mechanic"
+    "client_dashboard": "/c4f9b1a7",        
+    "mechanic_dashboard": "/m8e2d3f0",      
+    "admin_dashboard": "/a7d3c9e5",         
+    "new_mechanic": "/n2f6b4c1",            
+    "assign_mechanic": "/as9d8e2f",         
 }
 
 
-# routing to help with navigation
+# routes
 @app.route("/")
 def index():
     return render_template("home.html")
 
-# registering a client user
-# Clients signup before they can make requests. This involves only a client
+# email sending function
+def send_email(to, subject, body):
+    msg = MIMEText(body)
+    msg["Subject"] = subject
+    msg["From"] = EMAIL_USER
+    msg["To"] = to
+
+    with smtplib.SMTP("smtp.gmail.com", 587) as server:
+        server.starttls()
+        server.login(EMAIL_USER, EMAIL_PASSWORD)
+        server.send_message(msg)
+
+# ------------------------------
+# Register Client
+# ------------------------------
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
@@ -123,7 +125,7 @@ def register():
             return render_template("register.html")
 
         if not is_valid_password(password):
-            flash("Password must be at least 8 characters, include uppercase, lowercase, number, and special character.", "danger")
+            flash("Password must be at least 8 chars, include uppercase, lowercase, number, special char.", "danger")
             return render_template("register.html")
 
         try:
@@ -145,7 +147,7 @@ def register():
                 "gender": gender,
                 "email": email,
                 "phone": phone,
-                "role": role
+                "role": role,
             })
             flash("User registered successfully! You can now login.", "success")
             return redirect(url_for("login"))
@@ -155,7 +157,9 @@ def register():
 
     return render_template("register.html")
 
-# --- LOGIN ---
+# ------------------------------
+# Login
+# ------------------------------
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -164,7 +168,7 @@ def login():
 
         try:
             user_record = auth.get_user_by_email(email)
-            user_info = db.reference(f'users/{user_record.uid}').get()
+            user_info = db.reference(f"users/{user_record.uid}").get()
             if not user_info:
                 flash("User not found in database.", "danger")
                 return redirect(url_for("login"))
@@ -176,7 +180,7 @@ def login():
                 role=role,
                 name=user_info.get("name"),
                 surname=user_info.get("surname"),
-                phone=user_info.get("phone")
+                phone=user_info.get("phone"),
             ))
             flash("Logged in successfully!", "success")
 
@@ -196,7 +200,9 @@ def login():
 
     return render_template("login.html")
 
-# --- LOGOUT ---
+# ------------------------------
+# Logout
+# ------------------------------
 @app.route("/logout")
 @login_required
 def logout():
@@ -204,6 +210,9 @@ def logout():
     flash("Logged out successfully!", "success")
     return redirect(url_for("login"))
 
+# ------------------------------
+# Client Dashboard
+# ------------------------------
 @app.route(HASHES["client_dashboard"])
 @login_required
 def client_dashboard():
@@ -214,7 +223,6 @@ def client_dashboard():
     bookings = db.reference("serviceRequests").order_by_child("client_id").equal_to(current_user.id).get() or {}
     users = db.reference("users").get() or {}
 
-    # Add mechanic info to bookings
     for key, booking in bookings.items():
         mech_id = booking.get("assigned_mechanic")
         if mech_id and mech_id in users:
@@ -226,7 +234,6 @@ def client_dashboard():
             booking["assigned_mechanic_phone"] = "-"
 
     return render_template("client.html", user=current_user, bookings=bookings, google_maps_api_key=GOOGLE_MAPS_API_KEY)
-
 
 # --- MECHANIC DASHBOARD ---
 @app.route(HASHES["mechanic_dashboard"])
@@ -250,7 +257,7 @@ def admin_dashboard():
     mechanics = {uid: info for uid, info in users.items() if info.get("role") == "mechanic"}
     return render_template("admin.html", user=current_user, bookings=bookings, mechanics=mechanics)
     
-# Helper functions for notifications
+# functions for notifications
 def send_email(to, subject, body):
     msg = MIMEText(body)
     msg['Subject'] = subject
@@ -272,13 +279,13 @@ def book_service():
         return redirect(url_for("login"))
 
     # Get form data
-    address = request.form.get("address")
-    vehicle = request.form.get("vehicle")
-    make_model = request.form.get("make_model")
-    category = request.form.get("category")
-    service_date = request.form.get("service_date")
-    service_time = request.form.get("service_time")
-    description = request.form.get("description")
+    address = request.form.get("address", "").strip()
+    vehicle = request.form.get("vehicle", "").strip()
+    make_model = request.form.get("make_model", "").strip()
+    category = request.form.get("category", "").strip()
+    service_date = request.form.get("service_date", "").strip()
+    service_time = request.form.get("service_time", "").strip()
+    description = request.form.get("description", "").strip()
 
     # Validate required fields
     if not all([address, vehicle, make_model, category, service_date, service_time, description]):
@@ -299,15 +306,14 @@ def book_service():
     # Generate reference number
     reference_number = "REF-" + secrets.token_hex(5).upper()
 
-    # Save request to Firebase
-    booking_ref = db.reference("serviceRequests").push()
-    booking_ref.set({
+    # Prepare booking data safely
+    booking_data = {
         "reference_number": reference_number,
-        "client_id": current_user.id,
-        "name": current_user.name,
-        "surname": current_user.surname,
-        "phone": current_user.phone,
-        "email": current_user.email,
+        "client_id": getattr(current_user, "id", ""),
+        "name": getattr(current_user, "name", "Unknown"),
+        "surname": getattr(current_user, "surname", ""),
+        "phone": getattr(current_user, "phone", ""),
+        "email": getattr(current_user, "email", ""),
         "address": address,
         "vehicle": vehicle,
         "make_model": make_model,
@@ -317,54 +323,31 @@ def book_service():
         "description": description,
         "assigned_mechanic": None,
         "timestamp": datetime.now().isoformat()
-    })
+    }
 
-    print(f"Service request saved: {reference_number}")
-
-    # Admins list
-    ADMINS = [
-        {"email": os.environ.get("ADMIN_EMAIL"), "phone": os.environ.get("ADMIN_PHONE")}
-    ]
-
-    # Prepare email/SMS content
-    subject_admin = "New Service Request"
-    body_admin = (
-        f"New service request received:\n"
-        f"Reference: {reference_number}\n"
-        f"Client: {current_user.name} {current_user.surname}\n"
-        f"Vehicle: {vehicle}\n"
-        f"Category: {category}\n"
-        f"Date/Time: {service_datetime_str}\n"
-        f"Address: {address}\n"
-        f"Description: {description}"
-    )
-
-    subject_client = "Service Request Received"
-    body_client = (
-        f"Hi {current_user.name}, your service request has been received successfully.\n"
-        f"Reference: {reference_number}\n"
-        f"Vehicle: {vehicle}\n"
-        f"Category: {category}\n"
-        f"Date/Time: {service_datetime_str}\n"
-        f"Address: {address}\n"
-        f"Description: {description}"
-    )
-
-    # Send notification to admins
-    for admin in ADMINS:
-        if not admin['email'] or not admin['phone']:
-            print(f"Admin email/phone not set: {admin}")
-            continue
-        try:
-            send_email(admin['email'], subject_admin, body_admin)
-        except Exception as e:
-            print(f"Failed to send email to admin {admin['email']}: {e}")
-
-    # Send notification to client
     try:
-        send_email(current_user.email, subject_client, body_client)
+        booking_ref = db.reference("serviceRequests").push()
+        booking_ref.set(booking_data)
+        print(f"Service request saved: {reference_number}")
     except Exception as e:
-        print(f"Failed to send email to client {current_user.email}: {e}")
+        flash(f"Failed to save booking: {e}", "danger")
+        return redirect(HASHES["client_dashboard"])
+
+    # Send notifications
+    for admin in ADMINS:
+        admin_email = admin.get("email")
+        if admin_email:
+            try:
+                send_email(admin_email, "New Service Request",
+                           f"New service request received:\nReference: {reference_number}\nClient: {booking_data['name']} {booking_data['surname']}\nVehicle: {vehicle}\nCategory: {category}\nDate/Time: {service_datetime_str}\nAddress: {address}\nDescription: {description}")
+            except Exception as e:
+                print(f"Failed to send email to admin {admin_email}: {e}")
+
+    try:
+        send_email(booking_data["email"], "Service Request Received",
+                   f"Hi {booking_data['name']}, your service request has been received.\nReference: {reference_number}\nVehicle: {vehicle}\nCategory: {category}\nDate/Time: {service_datetime_str}\nAddress: {address}\nDescription: {description}")
+    except Exception as e:
+        print(f"Failed to send email to client {booking_data['email']}: {e}")
 
     flash(f"Service booked successfully! Reference: {reference_number}", "success")
     return redirect(HASHES["client_dashboard"])
@@ -460,11 +443,12 @@ def assign_mechanic():
         mechanic_email = mechanic.get("email")
         mechanic_phone = mechanic.get("phone")
         mechanic_name = mechanic.get("name")
+        mechanic_surname = mechanic.get("surname")
 
         # sending notications to respective users
         # Email/SMS content for client
         client_subject = "Mechanic Assigned"
-        client_body = f"Hi {client_name},\n\nA mechanic has been assigned to your service request:\nReference: {booking.get('reference_number')}\nMechanic: {mechanic_name}\nVehicle: {vehicle}\nCategory: {category}\nDate/Time: {service_datetime}\nAddress: {address}\n\nThank you!"
+        client_body = f"Hi {client_name},\n\nA mechanic has been assigned to your service request:\nReference: {booking.get('reference_number')}\nMechanic: {mechanic_name}{mechanic_surname}\nMechanic Phone:{mechanic_phone}\nVehicle: {vehicle}\nCategory: {category}\nDate/Time: {service_datetime}\nAddress: {address}\n\nThank you!"
 
         # Email/SMS content for mechanic
         mech_subject = "New Service Assigned"
@@ -488,8 +472,24 @@ def assign_mechanic():
         flash(f"Failed to assign mechanic: {e}", "danger")
 
     return redirect(HASHES["admin_dashboard"])
+    
+# Catching uncatched exceptions
+
+@app.errorhandler(Exception)
+def handle_all_exceptions(e):
+    """Catch all unhandled exceptions."""
+    # Log the exception details
+    print("An unexpected error occurred:", e)
+    
+    # Optionally, return a JSON response for API endpoints
+    if request.path.startswith("/api/"):
+        return jsonify({"error": "An unexpected error occurred.", "details": str(e)}), 500
+    
+    # For normal routes, show a flash message and redirect
+    flash("An unexpected error occurred. Please try again later.", "danger")
+    return redirect(url_for("index"))
 
 
-# entry point of the application
+# Entry point of the application
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

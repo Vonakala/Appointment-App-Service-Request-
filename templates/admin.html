@@ -7,7 +7,7 @@
 </head>
 <body>
 <div class="container mt-5">
-    <h2>Welcome, {{ user.name }}</h2>
+    <h2>Welcome, {{ user.name }} {{ user.surname }}</h2>
     <a href="{{ url_for('logout') }}" class="btn btn-danger float-end">Logout</a>
        {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
