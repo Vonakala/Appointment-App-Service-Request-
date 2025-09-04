@@ -65,7 +65,7 @@ def load_user(user_id):
                 phone=user_data.get("phone"),
             )
     except Exception as e:
-        print("❌ load_user failed:", e)
+        print("load_user failed:", e)
     return None
 
 # Password validation
@@ -100,20 +100,18 @@ def send_email(to, subject, body):
         server.starttls()
         server.login(EMAIL_USER, EMAIL_PASSWORD)
         server.send_message(msg)
-
-# ------------------------------
-# Register Client
-# ------------------------------
+        
+# Register client
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
-        name = request.form.get("name")
-        surname = request.form.get("surname")
-        gender = request.form.get("gender")
-        email = request.form.get("email")
-        phone = request.form.get("phone")
-        password = request.form.get("password")
-        confirm_password = request.form.get("confirm_password")
+        name = request.form.get("name", "").strip()
+        surname = request.form.get("surname", "").strip()
+        gender = request.form.get("gender", "").strip()
+        email = request.form.get("email", "").strip()
+        phone = request.form.get("phone", "").strip()
+        password = request.form.get("password", "").strip()
+        confirm_password = request.form.get("confirm_password", "").strip()
         role = request.form.get("role", "client")
 
         if not all([name, surname, gender, email, phone, password, confirm_password]):
@@ -129,17 +127,6 @@ def register():
             return render_template("register.html")
 
         try:
-            existing_user = auth.get_user_by_email(email)
-            if existing_user:
-                flash("Email already registered. Please login.", "danger")
-                return render_template("register.html")
-        except auth.UserNotFoundError:
-            pass
-        except Exception as e:
-            flash(f"Error checking email: {e}", "danger")
-            return render_template("register.html")
-
-        try:
             user_record = auth.create_user(email=email, password=password)
             db.reference(f"users/{user_record.uid}").set({
                 "name": name,
@@ -151,11 +138,13 @@ def register():
             })
             flash("User registered successfully! You can now login.", "success")
             return redirect(url_for("login"))
+        except auth.EmailAlreadyExistsError:
+            flash("Email already registered. Please login.", "danger")
         except Exception as e:
             flash(f"Registration failed: {e}", "danger")
-            return render_template("register.html")
 
     return render_template("register.html")
+
 
 # ------------------------------
 # Login
@@ -274,11 +263,11 @@ def send_email(to, subject, body):
 @app.route("/book_service", methods=["POST"])
 @login_required
 def book_service():
-    if current_user.role != "client":
+    if getattr(current_user, "role", None) != "client":
         flash("Access denied", "danger")
         return redirect(url_for("login"))
 
-    # Get form data
+    # Get form data safely
     address = request.form.get("address", "").strip()
     vehicle = request.form.get("vehicle", "").strip()
     make_model = request.form.get("make_model", "").strip()
@@ -290,26 +279,26 @@ def book_service():
     # Validate required fields
     if not all([address, vehicle, make_model, category, service_date, service_time, description]):
         flash("All fields are required.", "danger")
-        return redirect(HASHES["client_dashboard"])
+        return redirect(HASHES.get("client_dashboard", "/"))
 
-    # Combine date and time
+    # Combine date and time and validate
     try:
         service_datetime_str = f"{service_date} {service_time}"
         service_datetime = datetime.strptime(service_datetime_str, "%Y-%m-%d %H:%M")
         if service_datetime < datetime.now():
             flash("Selected date and time cannot be in the past.", "danger")
-            return redirect(HASHES["client_dashboard"])
+            return redirect(HASHES.get("client_dashboard", "/"))
     except ValueError:
         flash("Invalid date or time format.", "danger")
-        return redirect(HASHES["client_dashboard"])
+        return redirect(HASHES.get("client_dashboard", "/"))
 
     # Generate reference number
     reference_number = "REF-" + secrets.token_hex(5).upper()
 
-    # Prepare booking data safely
+    # Prepare booking data safely, fallback to defaults if first-time user
     booking_data = {
         "reference_number": reference_number,
-        "client_id": getattr(current_user, "id", ""),
+        "client_id": getattr(current_user, "id", "unknown_id"),
         "name": getattr(current_user, "name", "Unknown"),
         "surname": getattr(current_user, "surname", ""),
         "phone": getattr(current_user, "phone", ""),
@@ -325,32 +314,55 @@ def book_service():
         "timestamp": datetime.now().isoformat()
     }
 
+    # Save booking to Firebase
     try:
         booking_ref = db.reference("serviceRequests").push()
         booking_ref.set(booking_data)
         print(f"Service request saved: {reference_number}")
     except Exception as e:
         flash(f"Failed to save booking: {e}", "danger")
-        return redirect(HASHES["client_dashboard"])
+        return redirect(HASHES.get("client_dashboard", "/"))
 
-    # Send notifications
+    # Notify admins
     for admin in ADMINS:
         admin_email = admin.get("email")
         if admin_email:
             try:
-                send_email(admin_email, "New Service Request",
-                           f"New service request received:\nReference: {reference_number}\nClient: {booking_data['name']} {booking_data['surname']}\nVehicle: {vehicle}\nCategory: {category}\nDate/Time: {service_datetime_str}\nAddress: {address}\nDescription: {description}")
+                send_email(
+                    admin_email,
+                    "New Service Request",
+                    f"New service request received:\n"
+                    f"Reference: {reference_number}\n"
+                    f"Client: {booking_data['name']} {booking_data['surname']}\n"
+                    f"Vehicle: {vehicle}\n"
+                    f"Category: {category}\n"
+                    f"Date/Time: {service_datetime_str}\n"
+                    f"Address: {address}\n"
+                    f"Description: {description}"
+                )
             except Exception as e:
                 print(f"Failed to send email to admin {admin_email}: {e}")
 
-    try:
-        send_email(booking_data["email"], "Service Request Received",
-                   f"Hi {booking_data['name']}, your service request has been received.\nReference: {reference_number}\nVehicle: {vehicle}\nCategory: {category}\nDate/Time: {service_datetime_str}\nAddress: {address}\nDescription: {description}")
-    except Exception as e:
-        print(f"Failed to send email to client {booking_data['email']}: {e}")
+    # Notify client
+    client_email = booking_data.get("email")
+    if client_email:
+        try:
+            send_email(
+                client_email,
+                "Service Request Received",
+                f"Hi {booking_data['name']}, your service request has been received.\n"
+                f"Reference: {reference_number}\n"
+                f"Vehicle: {vehicle}\n"
+                f"Category: {category}\n"
+                f"Date/Time: {service_datetime_str}\n"
+                f"Address: {address}\n"
+                f"Description: {description}"
+            )
+        except Exception as e:
+            print(f"Failed to send email to client {client_email}: {e}")
 
     flash(f"Service booked successfully! Reference: {reference_number}", "success")
-    return redirect(HASHES["client_dashboard"])
+    return redirect(HASHES.get("client_dashboard", "/"))
 
 
 # Logged in Administrator can add mechanic
