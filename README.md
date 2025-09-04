@@ -18,7 +18,9 @@ This project is built with **Flask**, **Firebase Realtime Database**, and **Goog
   - Manage clients and mechanics  
   - Assign service requests to mechanics  
   - Send SMS and email notifications  
-  - Track all service requests  
+  - Track all service requests
+
+  Note: Admin is only added by running the attached admin.py script that only runs on a console.
 
 - **Mechanic Features**
   - Receive assigned jobs with location details  
