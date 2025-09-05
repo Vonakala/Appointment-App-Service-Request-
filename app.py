@@ -12,6 +12,7 @@ from email.mime.text import MIMEText
 from flask import jsonify
 import traceback
 from flask import render_template
+from flask import send_from_directory
 
 # Loading environmental variables
 load_dotenv()
@@ -486,19 +487,11 @@ def assign_mechanic():
         flash(f"Failed to assign mechanic: {e}", "danger")
 
     return redirect(HASHES["admin_dashboard"])
-    
-# Catching uncatched exceptions
-@app.errorhandler(Exception)
-def handle_all_exceptions(e):
-    # Print the full traceback to console for debugging
-    print("Exception occurred:", e)
-    print(traceback.format_exc())
-
-    # Flash a simple message (optional) and show friendly error page
-    flash("Oops! Something went wrong. Please try again.", "danger")
-    return render_template("error.html", error=str(e)), 500
-
-
+ 
+# This portion handles flavicon.ico error 
+@app.route('/favicon.ico')
+def favicon():
+    return '', 204  # 204 = No Content
 
 # Entry point of the application
 if __name__ == "__main__":
