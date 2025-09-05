@@ -10,6 +10,8 @@ from datetime import datetime
 import smtplib
 from email.mime.text import MIMEText
 from flask import jsonify
+import traceback
+from flask import render_template
 
 # Loading environmental variables
 load_dotenv()
@@ -486,20 +488,16 @@ def assign_mechanic():
     return redirect(HASHES["admin_dashboard"])
     
 # Catching uncatched exceptions
-
 @app.errorhandler(Exception)
 def handle_all_exceptions(e):
-    """Catch all unhandled exceptions."""
-    # Log the exception details
-    print("An unexpected error occurred:", e)
-    
-    # Optionally, return a JSON response for API endpoints
-    if request.path.startswith("/api/"):
-        return jsonify({"error": "An unexpected error occurred.", "details": str(e)}), 500
-    
-    # For normal routes, show a flash message and redirect
-    flash("An unexpected error occurred. Please try again later.", "danger")
-    return redirect(url_for("index"))
+    # Print the full traceback to console for debugging
+    print("Exception occurred:", e)
+    print(traceback.format_exc())
+
+    # Flash a simple message (optional) and show friendly error page
+    flash("Oops! Something went wrong. Please try again.", "danger")
+    return render_template("error.html", error=str(e)), 500
+
 
 
 # Entry point of the application
