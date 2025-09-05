@@ -1,6 +1,3 @@
 .env
 service-request-project-7214c-firebase-adminsdk-fbsvc-ddc8673e12.json
-serviceAccount.json
-service_account.json
-service-app-1881f-firebase-adminsdk-fbsvc-*.json*.json 
-.env 
+#These are the files that are needed in order for the application to run successfully and interact with the database abd get to use google maps
