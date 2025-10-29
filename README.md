@@ -1,6 +1,6 @@
 # Service Request / Appointment Booking App
 
-A web application for **Lure Mobile Mechanics** that allows clients to request vehicle repair or service appointments, while administrators can assign mechanics and send notifications. Mechanic only view and receives requests and notications about their assigned requests.  
+A web application for **Lure Mobile Mechanics** that allows clients to request vehicle repair or service appointments, while administrators can assign mechanics and send notifications. Mechanic only view and receives requests and notifications about their assigned requests.  
 
 This project is built with **Flask**, **Firebase Realtime Database**, and **Google Maps API**.  
 
